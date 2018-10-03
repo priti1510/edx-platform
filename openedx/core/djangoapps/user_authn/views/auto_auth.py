@@ -16,6 +16,7 @@ from django_comment_common.models import assign_role
 
 from opaque_keys.edx.locator import CourseLocator
 from openedx.core.djangoapps.user_api.accounts.utils import generate_password
+from openedx.core.djangoapps.user_api.config.waffle import PASSWORD_UNICODE_NORMALIZE
 from openedx.features.course_experience import course_home_url_name
 from student.forms import AccountCreationForm
 from student.helpers import (
@@ -32,6 +33,7 @@ from student.models import (
 )
 from student.helpers import authenticate_new_user, do_create_account
 from util.json_request import JsonResponse
+from util.password_policy_validators import normalize_password
 
 
 def auto_auth(request):  # pylint: disable=too-many-statements

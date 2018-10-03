@@ -12,13 +12,16 @@ from dateutil.parser import parse as parse_datetime
 from django.conf import settings
 from django.contrib.auth.models import User
 from django.core import mail
+from django.contrib.auth.hashers import make_password
 from django.test import TestCase
 from django.test.client import RequestFactory
 from mock import Mock, patch
 from six import iteritems
+import unicodedata
 
 from openedx.core.djangoapps.site_configuration.tests.factories import SiteFactory
 from openedx.core.djangoapps.user_api.accounts import PRIVATE_VISIBILITY, USERNAME_MAX_LENGTH
+from openedx.core.djangoapps.waffle_utils.testutils import override_waffle_flag
 from openedx.core.djangoapps.user_api.accounts.api import (
     activate_account,
     create_account,
@@ -32,7 +35,12 @@ from openedx.core.djangoapps.user_api.accounts.tests.testutils import (
     INVALID_USERNAMES,
     VALID_USERNAMES_UNICODE
 )
-from openedx.core.djangoapps.user_api.config.waffle import PREVENT_AUTH_USER_WRITES, SYSTEM_MAINTENANCE_MSG, waffle
+from openedx.core.djangoapps.user_api.config.waffle import(
+    PASSWORD_UNICODE_NORMALIZE,
+    PREVENT_AUTH_USER_WRITES,
+    SYSTEM_MAINTENANCE_MSG,
+    waffle,
+)
 from openedx.core.djangoapps.user_api.errors import (
     AccountEmailInvalid,
     AccountPasswordInvalid,
@@ -286,7 +294,6 @@ class AccountSettingsOnCreationTest(TestCase):
     def test_create_account(self):
         # Create a new account, which should have empty account settings by default.
         create_account(self.USERNAME, self.PASSWORD, self.EMAIL)
-
         # Retrieve the account settings
         user = User.objects.get(username=self.USERNAME)
         request = RequestFactory().get("/api/user/v1/accounts/")
@@ -322,6 +329,23 @@ class AccountSettingsOnCreationTest(TestCase):
             'accomplishments_shared': False,
             'extended_profile': [],
         })
+
+    @override_waffle_flag(PASSWORD_UNICODE_NORMALIZE, active=True)
+    def test_normalize_password(self):
+        # Test password normalization on account creation.
+        create_account(self.USERNAME, unicodedata.normalize('NFKD', u'Ṗŕệṿïệẅ Ṯệẍt'), self.EMAIL)
+
+        # Retrieve the account settings
+        user = User.objects.get(username=self.USERNAME)
+        request = RequestFactory().get("/api/user/v1/accounts/")
+        request.user = user
+
+        salt_val = user.password.split('$')[1]
+
+        test_password = make_password(unicodedata.normalize('NFKC', u'Ṗŕệṿïệẅ Ṯệẍt'), salt_val)
+        self.assertEqual(test_password, user.password)
+
+
 
 
 @attr(shard=2)

@@ -320,3 +320,10 @@ def _validate_password_dictionary(value):
             if edit_distance <= password_max_edit_distance:
                 raise ValidationError(_("Password is too similar to a dictionary word."),
                                       code="dictionary_word")
+
+def normalize_password(password):
+    """
+    Normalize all passwords to 'NFKC' across the platform to prevent mismatched hash strings when comparing entered
+    passwords on login. See LEARNER-4283 for more context.
+    """
+    return unicodedata.normalize('NFKC', password)

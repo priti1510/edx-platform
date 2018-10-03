@@ -36,6 +36,7 @@ from lms.djangoapps.verify_student.utils import is_verification_expiring_soon, v
 from openedx.core.djangoapps.certificates.api import certificates_viewable_for_course
 from openedx.core.djangoapps.site_configuration import helpers as configuration_helpers
 from openedx.core.djangoapps.theming import helpers as theming_helpers
+from openedx.core.djangoapps.user_api.config.waffle import PASSWORD_UNICODE_NORMALIZE
 from openedx.core.djangoapps.theming.helpers import get_themes
 from student.models import (
     LinkedInAddToProfileConfiguration,
@@ -47,6 +48,7 @@ from student.models import (
     email_exists_or_retired,
     username_exists_or_retired
 )
+from util.password_policy_validators import normalize_password
 
 
 # Enumeration of per-course verification statuses
@@ -623,7 +625,10 @@ def do_create_account(form, custom_form=None):
         email=form.cleaned_data["email"],
         is_active=False
     )
-    user.set_password(form.cleaned_data["password"])
+    password = form.cleaned_data["password"]
+    if PASSWORD_UNICODE_NORMALIZE.is_enabled():
+        password = normalize_password(password)
+    user.set_password(password)
     registration = Registration()
 
     # TODO: Rearrange so that if part of the process fails, the whole process fails.

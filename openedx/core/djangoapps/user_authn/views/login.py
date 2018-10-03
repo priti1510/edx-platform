@@ -27,6 +27,7 @@ from openedx.core.djangoapps.external_auth.models import ExternalAuthMap
 from openedx.core.djangoapps.password_policy import compliance as password_policy_compliance
 from openedx.core.djangoapps.site_configuration import helpers as configuration_helpers
 from openedx.core.djangoapps.util.user_messages import PageLevelMessages
+from openedx.core.djangoapps.user_api.config.waffle import PASSWORD_UNICODE_NORMALIZE
 from student.models import (
     LoginFailures,
     PasswordHistory,
@@ -35,6 +36,7 @@ from student.views import send_reactivation_email_for_user
 import third_party_auth
 from third_party_auth import pipeline, provider
 from util.json_request import JsonResponse
+from util.password_policy_validators import normalize_password
 
 log = logging.getLogger("edx.student")
 AUDIT_LOG = logging.getLogger("audit")
@@ -209,10 +211,16 @@ def _authenticate_first_party(request, unauthenticated_user):
     username = unauthenticated_user.username if unauthenticated_user else ""
 
     try:
-        return authenticate(
-            username=username,
-            password=request.POST['password'],
-            request=request)
+        if PASSWORD_UNICODE_NORMALIZE.is_enabled():
+            return authenticate(
+                username=username,
+                password=normalize_password(request.POST['password']),
+                request=request)
+        else:
+            return authenticate(
+                username=username,
+                password=request.POST['password'],
+                request=request)
 
     # This occurs when there are too many attempts from the same IP address
     except RateLimitException:
